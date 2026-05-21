@@ -10,6 +10,7 @@ Antes de começar, certifique-se de que as seguintes ferramentas estejam instala
 
 - [git](https://git-scm.com/)
 - [Node.js](https://nodejs.org/en/)
+- [npm](https://docs.npmjs.com/cli/v11/commands/npm-install) 
 - [pnpm](https://pnpm.io/installation)
 - [Visual Studio Code](https://code.visualstudio.com/)
 
