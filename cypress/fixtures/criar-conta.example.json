@@ -1,0 +1,9 @@
+{
+  "nome": "Usuario Exemplo",
+  "dataNascimento": "15/04/1987",
+  "sexo": "Masculino",
+  "email": "seu-email@exemplo.com",
+  "cpf": "00000000000",
+  "senha": "sua-senha-aqui",
+  "senhaConfirmar": "sua-senha-aqui"
+}
