@@ -1,20 +1,10 @@
-import { getCurrentDateTime } from "../../helpers/date.helper";
-
 describe("CT-SIFAP-CAR-F02.02 - Informacoes complementares", () => {
   beforeEach(() => {
-    cy.fixture("criar-conta").then((usuario) => {
-      cy.typeLogin(usuario.email, usuario.senha);
-      cy.get('[data-cy="user-menu"]').should("be.visible");
-    });
+    cy.loginUsuarioPadrao();
   });
 
   it("deve exibir e permitir responder as perguntas configuradas no edital", () => {
-    cy.fixture("proposta").then((proposta) => {
-      const propostaUnica = {
-        ...proposta,
-        tituloProjeto: `${proposta.tituloProjeto} ${getCurrentDateTime()}`,
-      };
-
+    cy.fixtureComTituloUnico().then((propostaUnica) => {
       cy.iniciarPropostaSigCypress();
       cy.preencherInformacoesIniciaisProposta(propostaUnica);
       cy.adicionarAreaConhecimentoProposta();

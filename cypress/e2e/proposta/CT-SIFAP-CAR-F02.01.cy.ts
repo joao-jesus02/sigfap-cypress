@@ -1,9 +1,6 @@
 describe("CT-SIFAP-CAR-F02.01 - Área de conhecimento da proposta", () => {
   beforeEach(() => {
-    cy.fixture("criar-conta").then((usuario) => {
-      cy.typeLogin(usuario.email, usuario.senha);
-      cy.get('[data-cy="user-menu"]').should("be.visible");
-    });
+    cy.loginUsuarioPadrao();
   });
 
   it("deve adicionar e persistir a área de conhecimento da proposta", () => {

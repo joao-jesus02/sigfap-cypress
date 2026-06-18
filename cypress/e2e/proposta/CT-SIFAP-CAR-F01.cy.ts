@@ -1,9 +1,6 @@
 describe("CT-SIFAP-CAR-F01 - Criação de proposta", () => {
   beforeEach(() => {
-    cy.fixture("criar-conta").then((usuario) => {
-      cy.typeLogin(usuario.email, usuario.senha);
-      cy.get('[data-cy="user-menu"]').should("be.visible");
-    });
+    cy.loginUsuarioPadrao();
   });
 
   it('deve exibir o botão "Criar Proposta" para o edital vigente', () => {

@@ -1,21 +1,11 @@
-import { getCurrentDateTime } from "../../helpers/date.helper";
-
 describe("CT-SIFAP-APR-F-04.03 - Membros da proposta", () => {
   beforeEach(() => {
     cy.intercept("PUT", "**/api/usuario/editar-perfil").as("editarPerfil");
-    cy.fixture("criar-conta").then((usuario) => {
-      cy.typeLogin(usuario.email, usuario.senha);
-      cy.get('[data-cy="user-menu"]').should("be.visible");
-    });
+    cy.loginUsuarioPadrao();
   });
 
   it('deve enviar convite ao membro com status "Pendente"', () => {
-    cy.fixture("proposta").then((proposta) => {
-      const propostaUnica = {
-        ...proposta,
-        tituloProjeto: `${proposta.tituloProjeto} ${getCurrentDateTime()}`,
-      };
-
+    cy.fixtureComTituloUnico().then((propostaUnica) => {
       cy.navegarAteMembrosDaProposta(propostaUnica);
       cy.get('[data-cy="nome-do-pesquisador"]').type(
         propostaUnica.membroPesquisador

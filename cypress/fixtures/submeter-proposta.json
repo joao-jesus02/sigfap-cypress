@@ -1,5 +1,5 @@
 {
-  "tituloProjeto": "Projeto Teste Cypress",
+  "tituloProjeto": "Projeto Submissao Cypress",
   "tipoEvento": "Congresso",
   "estado": "Mato Grosso do Sul",
   "instituicao": "UFMS",
@@ -24,7 +24,7 @@
   "unidadeSigla": "FACOM",
   "nivelAcademico": "Doutorado",
   "curriculoLattes": "https://lattes.cnpq.br/1234567890123456",
-  "linkedin": "https://www.linkedin.com/in/teste-docente",
+  "linkedin": "https://www.linkedin.com/in/teste-cypress",
   "tipoVinculo": "Servidor Público",
   "inicioServico": "01/01/2020",
   "regimeTrabalho": "Dedicação Exclusiva",
@@ -39,14 +39,12 @@
   "atividadeMesInicio": "janeiro",
   "atividadeDuracao": "3",
   "atividadeCargaHoraria": "20",
-  "servicoTerceiroEspecificacao": "Consultoria em desenvolvimento",
-  "servicoTerceiroTipo": "Pessoa Jurídica",
-  "servicoTerceiroCustoUnitario": "1500,00",
-  "servicoTerceiroMesPrevisto": "Março",
-  "servicoTerceiroJustificativa": "Serviço necessário para apoio técnico do projeto",
   "bolsaModalidadeOpcao": "at",
   "bolsaNivelOpcao": "ns-r-770-00",
   "bolsaQuantidade": "1",
   "bolsaDuracaoOpcao": "3",
-  "documentoPropostaNome": "documento-proposta.pdf"
+  "documentoPessoalUpload": "cypress/fixtures/documento-pessoal-cadastro.pdf",
+  "documentoPessoalNome": "documento-pessoal-cadastro.pdf",
+  "documentoPropostaUpload": "cypress/fixtures/documento-proposta-submissao.pdf",
+  "documentoPropostaNome": "documento-proposta-submissao.pdf"
 }

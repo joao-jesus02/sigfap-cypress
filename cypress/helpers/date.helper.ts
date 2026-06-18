@@ -27,16 +27,3 @@ export const getCurrentDateTime = ({
   const [hh, mm, ss] = time.split(":");
   return `${date} ${mm}.${ss}.${hh}`;
 };
-
-export const getCurrentDate = ({
-  addDays,
-  addMonths,
-  addYears,
-}: DateTimeOptions = {}): string => {
-  const now = new Date();
-  if (addDays) now.setDate(now.getDate() + addDays);
-  if (addMonths) now.setMonth(now.getMonth() + addMonths);
-  if (addYears) now.setFullYear(now.getFullYear() + addYears);
-  const date = now.toLocaleDateString("pt-BR"); // "08/05/2025"
-  return `${date}`;
-};

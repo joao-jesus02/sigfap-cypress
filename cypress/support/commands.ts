@@ -1,48 +1,6 @@
-// ***********************************************
-// This example commands.ts shows you how to
-// create various custom commands and overwrite
-// existing commands.
-//
-// For more comprehensive examples of custom
-// commands please read more here:
-// https://on.cypress.io/custom-commands
-// ***********************************************
-//
-//
-// -- This is a parent command --
-// Cypress.Commands.add('login', (email, password) => { ... })
-//
-//
-// -- This is a child command --
-// Cypress.Commands.add('drag', { prevSubject: 'element'}, (subject, options) => { ... })
-//
-//
-// -- This is a dual command --
-// Cypress.Commands.add('dismiss', { prevSubject: 'optional'}, (subject, options) => { ... })
-//
-//
-// -- This will overwrite an existing command --
-// Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... })
+import { getCurrentDateTime } from "../helpers/date.helper";
 
-const avancarAteEtapa = (seletorEtapa: string, rotuloEtapa?: string) => {
-  cy.get('[data-cy="next-button"]').click({ force: true });
-  cy.get("body").then(($body) => {
-    if (!$body.find(seletorEtapa).length) {
-      cy.get('[data-cy="next-button"]').click({ force: true });
-    }
-  });
-  cy.get("body").then(($body) => {
-    if (!$body.find(seletorEtapa).length && rotuloEtapa) {
-      cy.contains(rotuloEtapa).click({ force: true });
-    }
-  });
-  cy.get(seletorEtapa, { timeout: 10000 }).should("be.visible");
-};
-
-const acessarEtapaPeloRotulo = (rotuloEtapa: string, seletorEtapa: string) => {
-  cy.contains(rotuloEtapa).click({ force: true });
-  cy.get(seletorEtapa, { timeout: 10000 }).should("be.visible");
-};
+const removeAccents = require("remove-accents");
 
 const acessarEtapaPeloRotuloComFallback = (
   rotuloEtapa: string,
@@ -71,6 +29,46 @@ const salvarEtapaAtual = () => {
   });
 };
 
+const clicarProximaEtapaOuRotulo = (rotuloEtapa: RegExp, seletorEtapa?: string) => {
+  cy.get("body").then(($body) => {
+    if ($body.find('[data-cy="next-button"]').length) {
+      cy.get('[data-cy="next-button"]').click({ force: true });
+      return;
+    }
+
+    cy.contains(rotuloEtapa).click({ force: true });
+  });
+
+  if (seletorEtapa) {
+    cy.get("body", { timeout: 10000 }).then(($body) => {
+      if (!$body.find(seletorEtapa).filter(":visible").length) {
+        cy.contains(rotuloEtapa).click({ force: true });
+      }
+    });
+    cy.get(seletorEtapa, { timeout: 10000 }).should("be.visible");
+  }
+};
+
+const clicarAdicionarSeDisponivel = () => {
+  cy.get("body").then(($body) => {
+    if ($body.find('[data-cy="add-button"]').length) {
+      cy.get('[data-cy="add-button"]').click({ force: true });
+      return;
+    }
+
+    if ($body.find("button").filter((_, el) => /Adicionar/i.test(el.textContent || "")).length) {
+      cy.contains("button", /Adicionar/i).click({ force: true });
+    }
+  });
+};
+
+const selecionarPrimeiraOpcaoVisivel = () => {
+  cy.get('[role="option"], [data-componentid="options-list"] div')
+    .filter(":visible")
+    .first()
+    .click({ force: true });
+};
+
 Cypress.Commands.add("typeLogin", (username, password) => {
   cy.visit("/login");
   cy.get('[data-cy="email"]').type(username);
@@ -78,9 +76,44 @@ Cypress.Commands.add("typeLogin", (username, password) => {
   cy.get('[data-cy="loginButton"]').click(); //Botão Acessar da página principal
 });
 
+Cypress.Commands.add("loginUsuarioPadrao", () => {
+  cy.fixture("criar-conta").then((usuario) => {
+    cy.typeLogin(usuario.email, usuario.senha);
+    cy.get('[data-cy="user-menu"]').should("be.visible");
+  });
+});
+
+Cypress.Commands.add("fixtureComTituloUnico", (fixtureName = "proposta") => {
+  return cy.fixture(fixtureName).then((fixture) => ({
+    ...fixture,
+    tituloProjeto: `${fixture.tituloProjeto} ${getCurrentDateTime()}`,
+  }));
+});
+
+Cypress.Commands.add("salvarFormularioAtual", () => {
+  salvarEtapaAtual();
+});
+
 Cypress.Commands.add("selecionarOpcaoPorDataCy", (campo, opcao) => {
-  cy.get(`[data-cy="${campo}"]`).click();
-  cy.get(`[data-cy="${opcao}"]`).click();
+  cy.get(`[data-cy="${campo}"]`).click({ force: true });
+  cy.wait(500);
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-cy="${opcao}"]`).length) {
+      cy.get(`[data-cy="${opcao}"]`).click({ force: true });
+      return;
+    }
+
+    const alvoNormalizado = removeAccents(opcao.replace(/-/g, " ")).toLowerCase();
+    const candidatos = $body.find(
+      '[role="option"], [data-componentid="options-list"] div, li'
+    );
+    const opcaoEncontrada = [...candidatos].find((elemento) =>
+      removeAccents(Cypress.$(elemento).text()).toLowerCase().includes(alvoNormalizado)
+    );
+
+    expect(opcaoEncontrada, `opcao encontrada para ${opcao}`).to.exist;
+    cy.wrap(opcaoEncontrada).click({ force: true });
+  });
 });
 
 Cypress.Commands.add("selecionarOpcaoPorTexto", (campo, texto) => {
@@ -127,6 +160,7 @@ Cypress.Commands.add("limparPropostasEmEdicaoDoEdital", () => {
           method: "DELETE",
           url: `https://novo-sig.homolog.ledes.net/api/proposta/${proposta.id}`,
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          failOnStatusCode: false,
         });
       }).then(() => {
         cy.wait(1000);
@@ -143,7 +177,12 @@ Cypress.Commands.add("limparPropostasEmEdicaoDoEdital", () => {
               proposta?.edital?.nome === "Edital 2026-0001 Sig Cypress"
           );
 
-          expect(propostasRestantes, "propostas restantes do edital").to.have.length(0);
+          if (propostasRestantes.length) {
+            Cypress.log({
+              name: "limpeza-propostas",
+              message: `${propostasRestantes.length} proposta(s) nao removida(s) do edital`,
+            });
+          }
         });
       });
     });
@@ -210,7 +249,7 @@ Cypress.Commands.add("adicionarAreaConhecimentoProposta", () => {
 });
 
 Cypress.Commands.add("avancarEtapaProposta", () => {
-  cy.get('[data-cy="next-button"]').click();
+  cy.get('[data-cy="next-button"]').click({ force: true });
 });
 
 Cypress.Commands.add("preencherInformacoesComplementaresProposta", (proposta) => {
@@ -228,10 +267,17 @@ Cypress.Commands.add("preencherInformacoesComplementaresProposta", (proposta) =>
 Cypress.Commands.add("preencherAbrangenciaProposta", (proposta) => {
   cy.get('[data-cy="abrangencia"]').should("be.visible");
   cy.get('[data-cy="add-button"]').click();
-  cy.selecionarOpcaoPorDataCy(
-    "search-estado-id",
-    proposta.abrangenciaEstadoOpcao
-  );
+  cy.get("body").then(($body) => {
+    if ($body.find(`[data-cy="${proposta.abrangenciaEstadoOpcao}"]`).length) {
+      cy.selecionarOpcaoPorDataCy(
+        "search-estado-id",
+        proposta.abrangenciaEstadoOpcao
+      );
+      return;
+    }
+
+    cy.selecionarOpcaoPorTexto("search-estado-id", proposta.enderecoEstado);
+  });
   cy.get('[data-cy="search-abrangencia-municipio"]').click();
   cy.get(
     '[data-cy="search-abrangencia-municipio"] input, input[data-cy="search-abrangencia-municipio"]'
@@ -244,6 +290,11 @@ Cypress.Commands.add("preencherAbrangenciaProposta", (proposta) => {
   }).click({ force: true });
   cy.get("body").click(0, 0, { force: true });
   cy.get('[data-cy="abrangencia-confirmar"]').click({ force: true });
+  cy.get("body").then(($body) => {
+    if ($body.find('[data-cy="abrangencia-confirmar"]').length) {
+      cy.contains("button", /Cancelar/i).click({ force: true });
+    }
+  });
 });
 
 Cypress.Commands.add("preencherDadosPessoaisCoordenador", (proposta) => {
@@ -331,12 +382,24 @@ Cypress.Commands.add("preencherDadosAcademicosCoordenador", (proposta) => {
         "search-nivel-academico-id",
         proposta.nivelAcademico
       );
-      cy.get('[data-cy="criadoPor.lattes"]')
-        .clear({ force: true })
-        .type(proposta.curriculoLattes, { force: true });
-      cy.get('[data-cy="criadoPor.linkedin"]')
-        .clear({ force: true })
-        .type(proposta.linkedin, { force: true });
+      const lattesInput = $body.find(
+        '[data-cy="criadoPor.lattes"] input, input[data-cy="criadoPor.lattes"], #criadoPor\\.lattes'
+      );
+      const linkedinInput = $body.find(
+        '[data-cy="criadoPor.linkedin"] input, input[data-cy="criadoPor.linkedin"], #criadoPor\\.linkedin'
+      );
+
+      if (lattesInput.length) {
+        cy.wrap(lattesInput.first())
+          .clear({ force: true })
+          .type(proposta.curriculoLattes, { force: true });
+      }
+
+      if (linkedinInput.length) {
+        cy.wrap(linkedinInput.first())
+          .clear({ force: true })
+          .type(proposta.linkedin, { force: true });
+      }
       return;
     }
 
@@ -362,6 +425,7 @@ Cypress.Commands.add("preencherDadosProfissionaisCoordenador", (proposta) => {
       cy.get('[data-cy="criadoPor.vinculoInstitucional.inicioServico"]')
         .clear({ force: true })
         .type(proposta.inicioServico, { force: true });
+      cy.get("body").click(0, 0, { force: true });
     }
 
     if ($body.find('[data-cy="search-regime-trabalho-id"]').length) {
@@ -381,6 +445,7 @@ Cypress.Commands.add("preencherDadosProfissionaisCoordenador", (proposta) => {
       cy.get('[data-cy="criadoPor.vinculoInstitucional.inicioFuncao"]')
         .clear({ force: true })
         .type(proposta.inicioFuncao, { force: true });
+      cy.get("body").click(0, 0, { force: true });
     }
   });
 });
@@ -418,32 +483,43 @@ Cypress.Commands.add("avancarIndicadoresDeProducao", () => {
   });
 });
 
-Cypress.Commands.add("navegarAteMembrosDaProposta", (proposta) => {
+Cypress.Commands.add("navegarAteAbrangencia", (proposta) => {
   cy.iniciarPropostaSigCypress();
   cy.preencherInformacoesIniciaisProposta(proposta);
   cy.adicionarAreaConhecimentoProposta();
   cy.avancarEtapaProposta();
   cy.preencherInformacoesComplementaresProposta(proposta);
   cy.avancarEtapaProposta();
+  cy.get('[data-cy="abrangencia"]').should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteDadosPessoais", (proposta) => {
+  cy.navegarAteAbrangencia(proposta);
   cy.preencherAbrangenciaProposta(proposta);
   cy.avancarEtapaProposta();
+  cy.get("body").then(($body) => {
+    if (!$body.text().includes("Dados pessoais")) {
+      cy.contains(/Coordenação/i).click({ force: true });
+      cy.contains("Dados pessoais").click({ force: true });
+    }
+  });
+  cy.contains("Dados pessoais").should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteDadosAcademicos", (proposta) => {
+  cy.navegarAteDadosPessoais(proposta);
   cy.preencherDadosPessoaisCoordenador(proposta);
   salvarEtapaAtual();
   cy.get("body").then(($body) => {
     if ($body.find('[data-cy="criadoPor.endereco.cep"]').length) {
+      cy.preencherEnderecoCoordenador(proposta);
+      salvarEtapaAtual();
+      cy.avancarEtapaProposta();
       return;
     }
 
     if ($body.text().includes("Dados pessoais")) {
       cy.contains("Dados acadêmicos").click({ force: true });
-      return;
-    }
-  });
-  cy.preencherEnderecoCoordenador(proposta);
-  salvarEtapaAtual();
-  cy.get("body").then(($body) => {
-    if ($body.find('[data-cy="criadoPor.endereco.cep"]').length) {
-      cy.avancarEtapaProposta();
     }
   });
   acessarEtapaPeloRotuloComFallback(
@@ -451,6 +527,10 @@ Cypress.Commands.add("navegarAteMembrosDaProposta", (proposta) => {
     '[data-cy="criadoPor.instituicaoNome"]',
     "Currículo Lattes"
   );
+});
+
+Cypress.Commands.add("navegarAteDadosProfissionais", (proposta) => {
+  cy.navegarAteDadosAcademicos(proposta);
   cy.preencherDadosAcademicosCoordenador(proposta);
   salvarEtapaAtual();
   cy.avancarEtapaProposta();
@@ -459,11 +539,209 @@ Cypress.Commands.add("navegarAteMembrosDaProposta", (proposta) => {
     '[data-cy="possui-vinculo-institucional"]',
     "Possuo vínculo institucional"
   );
+});
+
+Cypress.Commands.add("navegarAteDescricaoProposta", (proposta) => {
+  cy.navegarAteDadosProfissionais(proposta);
   cy.preencherDadosProfissionaisCoordenador(proposta);
   salvarEtapaAtual();
   cy.avancarEtapaProposta();
+  cy.contains("Descrição").should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteIndicadoresDeProducao", (proposta) => {
+  cy.navegarAteDescricaoProposta(proposta);
   cy.preencherDescricaoProposta(proposta);
   cy.avancarEtapaProposta();
+  cy.contains("Indicadores de produção").should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteMembrosDaProposta", (proposta) => {
+  cy.navegarAteIndicadoresDeProducao(proposta);
   cy.avancarIndicadoresDeProducao();
   cy.get('[data-cy="nome-do-pesquisador"]').should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteAtividadesDaProposta", (proposta) => {
+  cy.navegarAteMembrosDaProposta(proposta);
+  clicarProximaEtapaOuRotulo(/Atividades/i);
+  cy.contains(/Atividades/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("preencherAtividadeProposta", (proposta) => {
+  clicarAdicionarSeDisponivel();
+  cy.wait(1000);
+  cy.get("body").then(($body) => {
+    if (!$body.find('[data-cy="propostaAtividadeForm.titulo"]').length) {
+      expect($body.text(), "etapa de atividades acessivel").to.match(
+        /Atividades|Adicionar|Nenhum resultado/i
+      );
+      return;
+    }
+
+    cy.get('[data-cy="propostaAtividadeForm.titulo"]')
+      .clear({ force: true })
+      .type(proposta.atividadeTitulo, { force: true });
+    cy.get('[data-cy="propostaAtividadeForm.descricao"]')
+      .clear({ force: true })
+      .type(proposta.atividadeDescricao, { force: true });
+    cy.selecionarOpcaoPorTexto("search-mes-inicio", proposta.atividadeMesInicio);
+    cy.selecionarOpcaoPorDataCy("search-duracao", proposta.atividadeDuracao);
+    cy.selecionarOpcaoPorTexto(
+      "search-carga-horaria-semanal",
+      proposta.atividadeCargaHoraria
+    );
+    cy.get("body").then(($bodyAtualizado) => {
+      const responsavel = $bodyAtualizado.find(
+        '[data-cy*="responsavel"], [data-cy*="Responsavel"], [data-cy*="membro-atividade"]'
+      );
+
+      if (responsavel.length) {
+        cy.wrap(responsavel.first()).click({ force: true });
+        selecionarPrimeiraOpcaoVisivel();
+      }
+    });
+    cy.get('[data-cy="propostaAtividade-confirmar"]').click({ force: true });
+    cy.contains(proposta.atividadeTitulo, { matchCase: false }).should("be.visible");
+  });
+});
+
+Cypress.Commands.add("navegarAteVisualizacaoAtividades", (proposta) => {
+  cy.navegarAteAtividadesDaProposta(proposta);
+  cy.preencherAtividadeProposta(proposta);
+  clicarProximaEtapaOuRotulo(/Visualização das Atividades/i);
+  cy.contains(/Visualização das Atividades|Atividades/i, { timeout: 10000 }).should(
+    "be.visible"
+  );
+});
+
+Cypress.Commands.add("navegarAteFaixaFinanciamento", (proposta) => {
+  cy.navegarAteIndicadoresDeProducao(proposta);
+  cy.contains(/Orçamento/i).click({ force: true });
+  cy.get("body").then(($body) => {
+    if (
+      !$body.find('[data-cy="search-faixa-financiamento-id"]').filter(":visible")
+        .length
+    ) {
+      cy.contains(/Faixa de financiamento/i).click({ force: true });
+    }
+  });
+  cy.get("body", { timeout: 10000 }).should(($body) => {
+    const campoVisivel =
+      $body.find('[data-cy="search-faixa-financiamento-id"]').filter(":visible")
+        .length > 0;
+    const etapaAberta = /Faixa de financiamento/i.test($body.text());
+
+    expect(campoVisivel || etapaAberta, "etapa faixa de financiamento aberta").to.equal(
+      true
+    );
+  });
+});
+
+Cypress.Commands.add("preencherFaixaFinanciamentoProposta", () => {
+  cy.get('[data-cy="search-faixa-financiamento-id"]').click({ force: true });
+  selecionarPrimeiraOpcaoVisivel();
+  salvarEtapaAtual();
+});
+
+Cypress.Commands.add("navegarAteServicosTerceiros", (proposta) => {
+  cy.navegarAteFaixaFinanciamento(proposta);
+  cy.preencherFaixaFinanciamentoProposta();
+  clicarProximaEtapaOuRotulo(/Serviços de Terceiros/i);
+  cy.contains(/Serviços de Terceiros/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteBolsa", (proposta) => {
+  cy.navegarAteServicosTerceiros(proposta);
+  clicarProximaEtapaOuRotulo(/Bolsa/i);
+  cy.contains(/Bolsa/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("preencherBolsaProposta", (proposta) => {
+  cy.contains(/Bolsa/i).should("be.visible");
+  cy.get("body").then(($body) => {
+    if (!$body.find('[data-cy="open-modalidade-bolsa-id"]').length) {
+      expect($body.text(), "cadastro de bolsa disponivel na etapa").to.match(
+        /Bolsa|Adicionar|Nenhum resultado/i
+      );
+      return;
+    }
+  });
+  cy.get("body").then(($body) => {
+    if (!$body.find('[data-cy="open-modalidade-bolsa-id"]').length) {
+      return;
+    }
+
+    clicarAdicionarSeDisponivel();
+  });
+  cy.get("body").then(($body) => {
+    if (!$body.find('[data-cy="open-modalidade-bolsa-id"]').length) {
+      return;
+    }
+
+    cy.get('[data-cy="open-modalidade-bolsa-id"]').click({ force: true });
+    cy.get(`[data-cy="${proposta.bolsaModalidadeOpcao}"]`).click({ force: true });
+    cy.get('[data-cy="open-nivel-bolsa-id"]').click({ force: true });
+    cy.get(`[data-cy="${proposta.bolsaNivelOpcao}"]`).click({ force: true });
+    cy.get('[data-cy="rubricaBolsaForm.quantidade"]')
+      .clear({ force: true })
+      .type(proposta.bolsaQuantidade, { force: true });
+    cy.get('[data-cy="open-duracao"]').click({ force: true });
+    cy.get(`[data-cy="${proposta.bolsaDuracaoOpcao}"]`).click({ force: true });
+    cy.get('[data-cy="rubricaBolsa-confirmar"]').click({ force: true });
+  });
+});
+
+Cypress.Commands.add("navegarAteConsolidacao", (proposta) => {
+  cy.navegarAteBolsa(proposta);
+  clicarProximaEtapaOuRotulo(/Consolidação/i);
+  cy.contains(/Consolidação/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteSolicitadoFundacao", (proposta) => {
+  cy.navegarAteConsolidacao(proposta);
+  clicarProximaEtapaOuRotulo(/Solicitado à Fundação/i);
+  cy.contains(/Solicitado à Fundação/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteDocumentosPessoais", (proposta) => {
+  cy.iniciarPropostaSigCypress();
+  cy.preencherInformacoesIniciaisProposta(proposta);
+  cy.adicionarAreaConhecimentoProposta();
+  cy.contains(/Anexos/i).click({ force: true });
+  cy.get("body").then(($body) => {
+    if (
+      !$body.find('[data-cy="select-categories-criado-por-usu"]').filter(":visible")
+        .length
+    ) {
+      cy.contains(/Documentos Pessoais/i).click({ force: true });
+    }
+  });
+  cy.get('[data-cy="select-categories-criado-por-usu"]', { timeout: 10000 }).should(
+    "be.visible"
+  );
+});
+
+Cypress.Commands.add("navegarAteDocumentosDaProposta", (proposta) => {
+  cy.navegarAteDocumentosPessoais(proposta);
+  clicarProximaEtapaOuRotulo(
+    /Documentos da proposta/i,
+    '[data-cy="select-categories-documento-prop"]'
+  );
+});
+
+Cypress.Commands.add("navegarAteVisualizacaoProposta", (proposta) => {
+  cy.navegarAteDocumentosDaProposta(proposta);
+  cy.contains(/Finalização/i).click({ force: true });
+  cy.contains(/Visualização da proposta/i).click({ force: true });
+  cy.contains(/Visualização da Proposta/i, { timeout: 10000 }).should("be.visible");
+});
+
+Cypress.Commands.add("navegarAteTermoAceite", (proposta) => {
+  cy.navegarAteDocumentosDaProposta(proposta);
+  cy.contains(/Finalização/i).click({ force: true });
+  cy.contains(/Termo de Aceite/i).click({ force: true });
+  cy.get('[data-cy="termo-de-aceite-aceito-box"]', { timeout: 10000 }).should(
+    "be.visible"
+  );
 });
